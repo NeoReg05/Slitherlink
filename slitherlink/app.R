@@ -1,51 +1,95 @@
-#
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    https://shiny.posit.co/
-#
-
 library(shiny)
 
-# Define UI for application that draws a histogram
+source("../R/codeR.R")
+
 ui <- fluidPage(
 
-    # Application title
-    titlePanel("Old Faithful Geyser Data"),
+  titlePanel("Slitherlink"),
 
-    # Sidebar with a slider input for number of bins 
-    sidebarLayout(
-        sidebarPanel(
-            sliderInput("bins",
-                        "Number of bins:",
-                        min = 1,
-                        max = 50,
-                        value = 30)
-        ),
+  sidebarLayout(
 
-        # Show a plot of the generated distribution
-        mainPanel(
-           plotOutput("distPlot")
-        )
+    sidebarPanel(
+
+      actionButton("new","Nouvelle grille"),
+      actionButton("reset","Reset"),
+      actionButton("check","Verifier solution")
+
+    ),
+
+    mainPanel(
+
+      plotOutput(
+        "game",
+        click="plot_click",
+        height="600px"
+      )
+
     )
+
+  )
+
 )
 
-# Define server logic required to draw a histogram
-server <- function(input, output) {
+server <- function(input, output, session){
 
-    output$distPlot <- renderPlot({
-        # generate bins based on input$bins from ui.R
-        x    <- faithful[, 2]
-        bins <- seq(min(x), max(x), length.out = input$bins + 1)
+  game <- generate_slitherlink(5,5)
 
-        # draw the histogram with the specified number of bins
-        hist(x, breaks = bins, col = 'darkgray', border = 'white',
-             xlab = 'Waiting time to next eruption (in mins)',
-             main = 'Histogram of waiting times')
-    })
+  grid <- reactiveVal(game$grid)
+  edges <- reactiveVal(list())
+
+  output$game <- renderPlot({
+
+    draw_game(grid(),edges())
+
+  })
+
+  observeEvent(input$new,{
+
+    game <- generate_slitherlink(5,5)
+
+    grid(game$grid)
+    edges(list())
+
+  })
+
+  observeEvent(input$reset,{
+
+    edges(list())
+
+  })
+
+  observeEvent(input$plot_click,{
+
+    edges(
+      add_edge_from_click(
+        edges(),
+        input$plot_click
+      )
+    )
+
+  })
+
+  observeEvent(input$check,{
+
+    rules_ok <- check_rules(grid(),edges())
+    loop_ok <- check_single_loop(edges())
+
+    msg <- ""
+
+    if(!rules_ok){
+      msg <- "Contraintes non respectées"
+    }else if(!loop_ok){
+      msg <- "La boucle n'est pas valide"
+    }else{
+      msg <- "Bravo ! Solution correcte"
+    }
+
+    showModal(
+      modalDialog(msg)
+    )
+
+  })
+
 }
 
-# Run the application 
-shinyApp(ui = ui, server = server)
+shinyApp(ui,server)
