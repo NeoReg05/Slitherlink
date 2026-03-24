@@ -12,7 +12,7 @@ ui <- fluidPage(
 
       actionButton("new","Nouvelle grille"),
       actionButton("reset","Reset"),
-      actionButton("check","Verifier solution")
+      actionButton("check","Confirmer")
 
     ),
 
