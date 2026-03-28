@@ -3,10 +3,7 @@
 #################################################
 
 normalize_edge <- function(edge) {
-  if (
-    edge$x1 > edge$x2 ||
-    (edge$x1 == edge$x2 && edge$y1 > edge$y2)
-  ) {
+  if (edge$x1 > edge$x2 || (edge$x1 == edge$x2 && edge$y1 > edge$y2)) {
     return(list(
       x1 = edge$x2, y1 = edge$y2,
       x2 = edge$x1, y2 = edge$y1
@@ -22,70 +19,106 @@ create_edge <- function(x1, y1, x2, y2) {
 same_edge <- function(e1, e2) {
   e1 <- normalize_edge(e1)
   e2 <- normalize_edge(e2)
-
-  e1$x1 == e2$x1 &&
-    e1$y1 == e2$y1 &&
-    e1$x2 == e2$x2 &&
-    e1$y2 == e2$y2
+  e1$x1 == e2$x1 && e1$y1 == e2$y1 && e1$x2 == e2$x2 && e1$y2 == e2$y2
 }
 
 #################################################
-# GENERATION D'UNE BOUCLE SIMPLE
+# GENERATION
 #################################################
 
 generate_random_loop <- function(n, m) {
-  # boucle rectangulaire aléatoire interne
-  top    <- sample(1:(n - 1), 1)
-  bottom <- sample((top + 1):n, 1)
-  left   <- sample(1:(m - 1), 1)
-  right  <- sample((left + 1):m, 1)
+  # 1. On commence par une boucle minuscule (une seule case au centre)
+  cx <- sample(1:m, 1)
+  cy <- sample(1:n, 1)
 
-  edges <- list()
+  # Liste des cases internes à la boucle (on stocke "ligne_colonne")
+  inside_cells <- paste(cy, cx, sep="_")
 
-  for (j in left:(right - 1)) {
-    edges[[length(edges) + 1]] <- create_edge(j, top, j + 1, top)
-    edges[[length(edges) + 1]] <- create_edge(j, bottom, j + 1, bottom)
+  # 2. On "gonfle" la boucle en ajoutant des cases adjacentes
+  # Plus 'iterations' est grand, plus la forme est complexe
+  iterations <- floor((n * m) * 0.4) # On occupe environ 40% de la grille
+
+  for(i in 1:iterations) {
+    # Trouver toutes les cases voisines de notre forme actuelle
+    neighbors <- c()
+    for(cell in inside_cells) {
+      coords <- as.numeric(strsplit(cell, "_")[[1]])
+      r <- coords[1]; c <- coords[2]
+
+      # Potentiels voisins (Haut, Bas, Gauche, Droite)
+      pots <- list(c(r-1,c), c(r+1,c), c(r,c-1), c(r,c+1))
+      for(p in pots) {
+        if(p[1] >= 1 && p[1] <= n && p[2] >= 1 && p[2] <= m) {
+          p_str <- paste(p[1], p[2], sep="_")
+          if(!(p_str %in% inside_cells)) neighbors <- c(neighbors, p_str)
+        }
+      }
+    }
+
+    if(length(neighbors) == 0) break
+    # On ajoute une case voisine au hasard pour agrandir la forme
+    inside_cells <- c(inside_cells, sample(unique(neighbors), 1))
   }
 
-  for (i in top:(bottom - 1)) {
-    edges[[length(edges) + 1]] <- create_edge(left, i, left, i + 1)
-    edges[[length(edges) + 1]] <- create_edge(right, i, right, i + 1)
-  }
+  # 3. Convertir les cases en arêtes de bordure
+  # Une arête appartient à la boucle si elle sépare une case "inside" d'une case "outside"
+  all_edges <- list()
+  for(cell in inside_cells) {
+    coords <- as.numeric(strsplit(cell, "_")[[1]])
+    r <- coords[1]; c <- coords[2]
 
-  edges
+    # Les 4 arêtes de cette case
+    candidates <- cell_edges(r, c)
+
+    for(cand in candidates) {
+      # On compte combien de fois cette arête apparaît dans toutes les cases "inside"
+      # Si elle n'apparaît qu'UNE fois, c'est une arête de bordure (la solution !)
+      is_border <- TRUE
+      # (Logique simplifiée : si l'arête est partagée entre deux cases 'inside',
+      # elle est à l'intérieur de la forme, donc on ne la trace pas)
+
+      # Pour chaque arête, on vérifie si elle est déjà dans notre liste
+      found_idx <- 0
+      if(length(all_edges) > 0) {
+        for(k in 1:length(all_edges)) {
+          if(same_edge(all_edges[[k]], cand)) { found_idx <- k; break }
+        }
+      }
+
+      if(found_idx > 0) {
+        all_edges <- all_edges[-found_idx] # L'arête était déjà là, donc elle est interne
+      } else {
+        all_edges[[length(all_edges) + 1]] <- cand # Nouvelle arête potentielle
+      }
+    }
+  }
+  return(all_edges)
 }
 
-#################################################
-# CALCUL DES INDICES
-#################################################
-
 cell_edges <- function(i, j) {
+  # i = ligne, j = colonne
   list(
-    create_edge(j, i, j + 1, i),       # haut
-    create_edge(j, i, j, i + 1),       # gauche
-    create_edge(j + 1, i, j + 1, i + 1), # droite
-    create_edge(j, i + 1, j + 1, i + 1)  # bas
+    create_edge(j-1, i-1, j, i-1), # haut
+    create_edge(j-1, i, j, i),     # bas
+    create_edge(j-1, i-1, j-1, i), # gauche
+    create_edge(j, i-1, j, i)      # droite
   )
 }
 
 compute_clues <- function(n, m, edges) {
   grid <- matrix(0, nrow = n, ncol = m)
-
   for (i in 1:n) {
     for (j in 1:m) {
       c_edges <- cell_edges(i, j)
       count <- 0
       for (ce in c_edges) {
         for (e in edges) {
-          if (same_edge(ce, e)) {
-            count <- count + 1
-          }
+          if (same_edge(ce, e)) count <- count + 1
         }
       }
       grid[i, j] <- count
     }
   }
-
   grid
 }
 
@@ -99,69 +132,61 @@ generate_slitherlink <- function(n = 5, m = 5, p_hide = 0.45) {
   solution <- generate_random_loop(n, m)
   grid <- compute_clues(n, m, solution)
   grid <- remove_clues(grid, p_hide)
-
-  list(
-    grid = grid,
-    solution = solution
-  )
+  list(grid = grid, solution = solution)
 }
 
 #################################################
-# CLIC UTILISATEUR
+# INTERACTION ET CLIC
 #################################################
 
 edge_from_click <- function(click, n, m) {
+  if (is.null(click)) return(NULL)
+
   x <- click$x
-  y <- click$y
+  y <- n - click$y # Inversion directe pour coller au dessin n-y
 
   gx <- floor(x)
   gy <- floor(y)
 
-  dx <- x - gx
-  dy <- y - gy
+  # Sécurité sur les bords
+  if (x < -0.2 || x > m + 0.2 || y < -0.2 || y > n + 0.2) return(NULL)
 
-  # bornes de sécurité
-  gx <- max(1, min(gx, m))
-  gy <- max(1, min(gy, n))
+  candidates <- list()
+  centers <- matrix(NA, nrow=0, ncol=2)
 
-  # choix de l'arête la plus proche
-  d_left   <- dx
-  d_right  <- 1 - dx
-  d_bottom <- dy
-  d_top    <- 1 - dy
+  # On teste les 4 arêtes autour du carré cliqué
+  # Horizontal Haut
+  candidates[[1]] <- create_edge(gx, gy, gx + 1, gy)
+  centers <- rbind(centers, c(gx + 0.5, gy))
+  # Horizontal Bas
+  candidates[[2]] <- create_edge(gx, gy + 1, gx + 1, gy + 1)
+  centers <- rbind(centers, c(gx + 0.5, gy + 1))
+  # Vertical Gauche
+  candidates[[3]] <- create_edge(gx, gy, gx, gy + 1)
+  centers <- rbind(centers, c(gx, gy + 0.5))
+  # Vertical Droite
+  candidates[[4]] <- create_edge(gx + 1, gy, gx + 1, gy + 1)
+  centers <- rbind(centers, c(gx + 1, gy + 0.5))
 
-  dmin <- min(d_left, d_right, d_bottom, d_top)
+  dists <- sqrt((centers[,1] - x)^2 + (centers[,2] - y)^2)
+  closest <- which.min(dists)
 
-  if (dmin == d_left && gx >= 1) {
-    edge <- create_edge(gx, gy, gx, gy + 1)
-  } else if (dmin == d_right && gx + 1 <= m + 1) {
-    edge <- create_edge(gx + 1, gy, gx + 1, gy + 1)
-  } else if (dmin == d_bottom && gy >= 1) {
-    edge <- create_edge(gx, gy, gx + 1, gy)
-  } else {
-    edge <- create_edge(gx, gy + 1, gx + 1, gy + 1)
-  }
-
-  edge
+  if (dists[closest] > 0.45) return(NULL)
+  candidates[[closest]]
 }
 
 toggle_edge <- function(edges, edge) {
-  if (length(edges) == 0) {
-    return(list(edge))
-  }
-
+  if (length(edges) == 0) return(list(edge))
   for (k in seq_along(edges)) {
-    if (same_edge(edges[[k]], edge)) {
-      return(edges[-k])
-    }
+    if (same_edge(edges[[k]], edge)) return(edges[-k])
   }
-
   edges[[length(edges) + 1]] <- edge
   edges
 }
 
 add_edge_from_click <- function(edges, click, n, m) {
   edge <- edge_from_click(click, n, m)
+  if (is.null(edge)) return(edges)
   toggle_edge(edges, edge)
 }
 
@@ -173,145 +198,99 @@ draw_game <- function(grid, edges) {
   n <- nrow(grid)
   m <- ncol(grid)
 
-  plot(
-    x = c(1, m + 1),
-    y = c(1, n + 1),
-    type = "n",
-    asp = 1,
-    axes = FALSE,
-    xlab = "",
-    ylab = "",
-    xaxs = "i",
-    yaxs = "i"
-  )
+  # On ajoute une petite marge pour ne pas couper les points
+  plot(NULL, xlim=c(-0.2, m+0.2), ylim=c(-0.2, n+0.2),
+       asp=1, axes=FALSE, xlab="", ylab="", xaxs="i", yaxs="i")
 
-  # fond
-  rect(1, 1, m + 1, n + 1, col = "#F8FAFC", border = NA)
+  rect(0, 0, m, n, col="#F8FAFC", border="#D0D7DE", lwd=2)
 
-  # quadrillage
-  for (i in 1:(m + 1)) {
-    segments(i, 1, i, n + 1, col = "#D0D7DE", lwd = 1)
-  }
-
-  for (j in 1:(n + 1)) {
-    segments(1, j, m + 1, j, col = "#D0D7DE", lwd = 1)
-  }
-
-  # points
-  for (i in 1:(m + 1)) {
-    for (j in 1:(n + 1)) {
-      points(i, j, pch = 16, cex = 0.7)
-    }
-  }
-
-  # indices
+  # Indices
   for (i in 1:n) {
     for (j in 1:m) {
-      if (!is.na(grid[i, j])) {
-        text(j + 0.5, n - i + 1.5, labels = grid[i, j], cex = 1.4, font = 2)
+      if (!is.na(grid[i,j])) {
+        text(j-0.5, n-i+0.5, labels=grid[i,j], cex=1.5, font=2, col="#1A1D21")
       }
     }
   }
 
-  # segments joueur
-  for (e in edges) {
-    segments(
-      e$x1,
-      n - e$y1 + 2,
-      e$x2,
-      n - e$y2 + 2,
-      col = "#2C7BE5",
-      lwd = 4
-    )
+  # Points aux intersections
+  for (i in 0:m) {
+    for (j in 0:n) {
+      points(i, j, pch=16, cex=0.8, col="#444444")
+    }
   }
-}
 
-#################################################
-# VERIFICATION DES CONTRAINTES
-#################################################
-
-count_edges_around_cell <- function(edges, i, j) {
-  c_edges <- cell_edges(i, j)
-  count <- 0
-
-  for (ce in c_edges) {
+  # Segments du joueur
+  if (length(edges) > 0) {
     for (e in edges) {
-      if (same_edge(ce, e)) {
-        count <- count + 1
-      }
+      segments(
+        e$x1, n - e$y1,
+        e$x2, n - e$y2,
+        col = "#2C7BE5", lwd = 5, lend=1
+      )
     }
   }
-
-  count
 }
+
+#################################################
+# VERIFICATION
+#################################################
 
 check_rules <- function(grid, edges) {
   n <- nrow(grid)
   m <- ncol(grid)
-
   for (i in 1:n) {
     for (j in 1:m) {
-      if (!is.na(grid[i, j])) {
-        if (count_edges_around_cell(edges, i, j) != grid[i, j]) {
-          return(FALSE)
+      if (!is.na(grid[i,j])) {
+        c_edges <- cell_edges(i, j)
+        count <- 0
+        for (ce in c_edges) {
+          for (e in edges) if (same_edge(ce, e)) count <- count + 1
         }
+        if (count != grid[i,j]) return(FALSE)
       }
     }
   }
-
   TRUE
 }
-
-#################################################
-# VERIFICATION DE LA BOUCLE UNIQUE
-#################################################
 
 check_single_loop <- function(edges) {
   if (length(edges) < 4) return(FALSE)
 
   vertices <- list()
-
-  add_degree <- function(key) {
-    if (is.null(vertices[[key]])) vertices[[key]] <<- 0
-    vertices[[key]] <<- vertices[[key]] + 1
-  }
-
-  for (e in edges) {
-    v1 <- paste(e$x1, e$y1, sep = "_")
-    v2 <- paste(e$x2, e$y2, sep = "_")
-    add_degree(v1)
-    add_degree(v2)
-  }
-
-  degs <- unlist(vertices)
-  if (any(!(degs %in% c(0, 2)))) return(FALSE)
-  if (any(degs == 1 | degs > 2)) return(FALSE)
-
-  # graphe d'adjacence
   adj <- list()
+
   for (e in edges) {
-    v1 <- paste(e$x1, e$y1, sep = "_")
-    v2 <- paste(e$x2, e$y2, sep = "_")
-    adj[[v1]] <- unique(c(adj[[v1]], v2))
-    adj[[v2]] <- unique(c(adj[[v2]], v1))
+    v1 <- paste(e$x1, e$y1, sep="_")
+    v2 <- paste(e$x2, e$y2, sep="_")
+
+    # Compte les degrés
+    vertices[[v1]] <- (if(is.null(vertices[[v1]])) 0 else vertices[[v1]]) + 1
+    vertices[[v2]] <- (if(is.null(vertices[[v2]])) 0 else vertices[[v2]]) + 1
+
+    # Adjacence
+    adj[[v1]] <- c(adj[[v1]], v2)
+    adj[[v2]] <- c(adj[[v2]], v1)
   }
 
-  # parcours pour vérifier qu'il n'y a qu'une seule composante
-  start <- names(adj)[1]
+  # Règle 1 : Chaque point touché doit avoir un degré de 2
+  degs <- unlist(vertices)
+  if (any(degs != 2)) return(FALSE)
+
+  # Règle 2 : Une seule composante connexe
+  start_node <- names(adj)[1]
   visited <- character(0)
-  stack <- c(start)
+  to_visit <- c(start_node)
 
-  while (length(stack) > 0) {
-    v <- stack[length(stack)]
-    stack <- stack[-length(stack)]
-
-    if (!(v %in% visited)) {
-      visited <- c(visited, v)
-      neigh <- adj[[v]]
-      stack <- unique(c(stack, neigh))
+  while(length(to_visit) > 0) {
+    curr <- to_visit[1]
+    to_visit <- to_visit[-1]
+    if (!(curr %in% visited)) {
+      visited <- c(visited, curr)
+      to_visit <- c(to_visit, adj[[curr]])
     }
   }
 
-  length(visited) == length(adj)
+  return(length(visited) == length(adj))
 }
 
