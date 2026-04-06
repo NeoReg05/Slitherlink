@@ -27,25 +27,17 @@ same_edge <- function(e1, e2) {
 #################################################
 
 generate_random_loop <- function(n, m) {
-  # 1. On commence par une boucle minuscule (une seule case au centre)
-  cx <- sample(1:m, 1)
-  cy <- sample(1:n, 1)
-
-  # Liste des cases internes à la boucle (on stocke "ligne_colonne")
+  # 1. Choisir une case de départ
+  cx <- sample(1:m, 1); cy <- sample(1:n, 1)
   inside_cells <- paste(cy, cx, sep="_")
 
-  # 2. On "gonfle" la boucle en ajoutant des cases adjacentes
-  # Plus 'iterations' est grand, plus la forme est complexe
-  iterations <- floor((n * m) * 0.4) # On occupe environ 40% de la grille
-
+  # 2. Expansion de la forme
+  iterations <- floor((n * m) * 0.4)
   for(i in 1:iterations) {
-    # Trouver toutes les cases voisines de notre forme actuelle
     neighbors <- c()
     for(cell in inside_cells) {
       coords <- as.numeric(strsplit(cell, "_")[[1]])
       r <- coords[1]; c <- coords[2]
-
-      # Potentiels voisins (Haut, Bas, Gauche, Droite)
       pots <- list(c(r-1,c), c(r+1,c), c(r,c-1), c(r,c+1))
       for(p in pots) {
         if(p[1] >= 1 && p[1] <= n && p[2] >= 1 && p[2] <= m) {
@@ -54,45 +46,44 @@ generate_random_loop <- function(n, m) {
         }
       }
     }
-
     if(length(neighbors) == 0) break
-    # On ajoute une case voisine au hasard pour agrandir la forme
-    inside_cells <- c(inside_cells, sample(unique(neighbors), 1))
+    inside_cells <- unique(c(inside_cells, sample(unique(neighbors), 1)))
   }
 
-  # 3. Convertir les cases en arêtes de bordure
-  # Une arête appartient à la boucle si elle sépare une case "inside" d'une case "outside"
-  all_edges <- list()
+  # 3. Extraction des arêtes de bordure (La clé est ici)
+  # On va compter combien de fois chaque arête apparaît
+  edge_counts <- list()
+
   for(cell in inside_cells) {
     coords <- as.numeric(strsplit(cell, "_")[[1]])
     r <- coords[1]; c <- coords[2]
 
-    # Les 4 arêtes de cette case
-    candidates <- cell_edges(r, c)
-
-    for(cand in candidates) {
-      # On compte combien de fois cette arête apparaît dans toutes les cases "inside"
-      # Si elle n'apparaît qu'UNE fois, c'est une arête de bordure (la solution !)
-      is_border <- TRUE
-      # (Logique simplifiée : si l'arête est partagée entre deux cases 'inside',
-      # elle est à l'intérieur de la forme, donc on ne la trace pas)
-
-      # Pour chaque arête, on vérifie si elle est déjà dans notre liste
-      found_idx <- 0
-      if(length(all_edges) > 0) {
-        for(k in 1:length(all_edges)) {
-          if(same_edge(all_edges[[k]], cand)) { found_idx <- k; break }
-        }
-      }
-
-      if(found_idx > 0) {
-        all_edges <- all_edges[-found_idx] # L'arête était déjà là, donc elle est interne
+    # Récupérer les 4 arêtes de la case
+    c_edges <- cell_edges(r, c)
+    for(e in c_edges) {
+      # Créer une clé unique "x1_y1_x2_y2" toujours triée
+      key <- paste(e$x1, e$y1, e$x2, e$y2, sep="_")
+      if(is.null(edge_counts[[key]])) {
+        edge_counts[[key]] <- 1
       } else {
-        all_edges[[length(all_edges) + 1]] <- cand # Nouvelle arête potentielle
+        edge_counts[[key]] <- edge_counts[[key]] + 1
       }
     }
   }
-  return(all_edges)
+
+  # Une arête appartient à la boucle UNIQUEMENT si elle n'est pas partagée
+  # (count == 1). Si count == 2, elle est à l'intérieur de la forme.
+  final_edges <- list()
+  for(key in names(edge_counts)) {
+    if(edge_counts[[key]] == 1) {
+      coords <- as.numeric(strsplit(key, "_")[[1]])
+      final_edges[[length(final_edges) + 1]] <- list(
+        x1=coords[1], y1=coords[2], x2=coords[3], y2=coords[4]
+      )
+    }
+  }
+
+  return(final_edges)
 }
 
 cell_edges <- function(i, j) {
@@ -112,13 +103,21 @@ compute_clues <- function(n, m, edges) {
       c_edges <- cell_edges(i, j)
       count <- 0
       for (ce in c_edges) {
+        # On ne compte l'arête que si elle est EXACTEMENT dans la liste
+        # des arêtes de bordure renvoyées par generate_random_loop
         for (e in edges) {
-          if (same_edge(ce, e)) count <- count + 1
+          if (same_edge(ce, e)) {
+            count <- count + 1
+            break # On passe à l'arête suivante de la cellule
+          }
         }
       }
       grid[i, j] <- count
     }
   }
+  # Dans un Slitherlink valide, un indice 4 est impossible.
+  # On peut forcer le remplacement au cas où, mais la logique ci-dessus
+  # devrait déjà limiter le score à 3 maximum.
   grid
 }
 
@@ -293,4 +292,3 @@ check_single_loop <- function(edges) {
 
   return(length(visited) == length(adj))
 }
-

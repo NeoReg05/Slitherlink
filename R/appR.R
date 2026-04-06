@@ -2,7 +2,7 @@ library(shiny)
 library(bslib)
 
 # Charger le code des fonctions (Vérifie bien le chemin du fichier)
-source("R/codeR.R")
+source("codeR.R")
 
 ui <- page_sidebar(
   title = "Slitherlink R",
@@ -13,8 +13,9 @@ ui <- page_sidebar(
   ),
   sidebar = sidebar(
     h4("Paramètres"),
-    numericInput("n", "Lignes", value = 5, min = 3, max = 10),
-    numericInput("m", "Colonnes", value = 5, min = 3, max = 10),
+    selectInput("grid_size", "Taille de la grille",
+                choices = c("5 x 5" = 5, "7 x 7" = 7, "10 x 10" = 10),
+                selected = 5),
     selectInput("difficulty", "Difficulté",
                 choices = c("Facile" = "easy", "Moyen" = "medium", "Difficile" = "hard"),
                 selected = "medium"),
@@ -41,27 +42,41 @@ server <- function(input, output, session) {
   player_edges <- reactiveVal(list())
   msg_status   <- reactiveVal("Bonne chance !")
 
-  # Initialisation
-  observe({
-    new_game()
-  }) |> bindEvent(input$new, ignoreInit = FALSE)
-
+  # Fonction de génération propre
   new_game <- function() {
-    p_hide <- switch(input$difficulty, easy = 0.2, medium = 0.4, hard = 0.6)
-    game <- generate_slitherlink(n = input$n, m = input$m, p_hide = p_hide)
+    # On s'assure que l'input est bien là et on le convertit en numérique
+    req(input$grid_size)
+    size <- as.numeric(input$grid_size)
+
+    p_hide <- switch(input$difficulty,
+                     easy = 0.2,
+                     medium = 0.4,
+                     hard = 0.6)
+
+    # ATTENTION : Correction ici (on utilise size au lieu de n et m)
+    game <- generate_slitherlink(n = size, m = size, p_hide = p_hide)
+
     current_game(game)
     player_edges(list())
     msg_status("Nouvelle partie commencée")
   }
 
+  # Initialisation et bouton New
+  # On utilise bindEvent pour éviter que ça tourne en boucle
+  observeEvent(input$new, {
+    new_game()
+  }, ignoreInit = FALSE)
+
   # Gestion des clics
   observeEvent(input$plot_click, {
     req(current_game())
+    grid <- current_game()$grid
+
     new_list <- add_edge_from_click(
       edges = player_edges(),
       click = input$plot_click,
-      n = nrow(current_game()$grid),
-      m = ncol(current_game()$grid)
+      n = nrow(grid),
+      m = ncol(grid)
     )
     player_edges(new_list)
   })
@@ -84,8 +99,11 @@ server <- function(input, output, session) {
   # Vérification finale
   observeEvent(input$check, {
     req(current_game())
-    res_rules <- check_rules(current_game()$grid, player_edges())
-    res_loop  <- check_single_loop(player_edges())
+    grid <- current_game()$grid
+    edges <- player_edges()
+
+    res_rules <- check_rules(grid, edges)
+    res_loop  <- check_single_loop(edges)
 
     if (res_rules && res_loop) {
       msg_status("FÉLICITATIONS ! Vous avez réussi.")
