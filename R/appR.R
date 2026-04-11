@@ -44,23 +44,17 @@ server <- function(input, output, session) {
 
   # Fonction de génération propre
   new_game <- function() {
-    # On s'assure que l'input est bien là et on le convertit en numérique
     req(input$grid_size)
     size <- as.numeric(input$grid_size)
 
-    p_hide <- switch(input$difficulty,
-                     easy = 0.2,
-                     medium = 0.4,
-                     hard = 0.6)
-
-    # ATTENTION : Correction ici (on utilise size au lieu de n et m)
-    game <- generate_slitherlink(n = size, m = size, p_hide = p_hide)
+    # On passe directement la difficulté à la fonction
+    # car p_hide est maintenant géré à l'intérieur de codeR.R
+    game <- generate_slitherlink(n = size, m = size, difficulty = input$difficulty)
 
     current_game(game)
     player_edges(list())
     msg_status("Nouvelle partie commencée")
   }
-
   # Initialisation et bouton New
   # On utilise bindEvent pour éviter que ça tourne en boucle
   observeEvent(input$new, {
