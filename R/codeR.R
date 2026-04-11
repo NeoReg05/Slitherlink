@@ -128,10 +128,19 @@ remove_clues <- function(grid, p = 0.5) {
 }
 
 generate_slitherlink <- function(n = 5, m = 5, p_hide = 0.45) {
-  solution <- generate_random_loop(n, m)
-  grid <- compute_clues(n, m, solution)
-  grid <- remove_clues(grid, p_hide)
-  list(grid = grid, solution = solution)
+  valid_grid <- FALSE
+  while(!valid_grid) {
+    solution <- generate_random_loop(n, m)
+    grid_full <- compute_clues(n, m, solution)
+
+    # Sécurité : si un 4 est détecté, on recommence la boucle
+    if (!any(grid_full == 4, na.rm = TRUE)) {
+      valid_grid <- TRUE
+    }
+  }
+
+  grid_hidden <- remove_clues(grid_full, p_hide)
+  list(grid = grid_hidden, solution = solution)
 }
 
 #################################################
