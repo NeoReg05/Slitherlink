@@ -104,16 +104,22 @@ generate_loop_medium <- function(n, m) {
 generate_loop_hard <- function(n, m) {
   cx <- sample(1:m, 1); cy <- sample(1:n, 1)
   inside_cells <- paste(cy, cx, sep="_")
-  iterations <- floor((n * m) * 0.6)
+
+  # On baisse à 40% pour éviter la saturation du 10x10
+  iterations <- floor((n * m) * 0.4)
+
   for(i in 1:iterations) {
     all_neighbors <- get_all_neighbors(inside_cells, n, m)
-    # On cherche les voisins qui ne touchent qu'UNE seule case (serpentin)
-    valid_neighbors <- c()
-    unique_nb <- unique(all_neighbors)
+    if(length(all_neighbors) == 0) break
+
     counts <- table(all_neighbors)
     valid_neighbors <- names(counts)[counts == 1]
 
-    if(length(valid_neighbors) == 0) break
+    # Si le serpent est coincé, on autorise n'importe quel voisin
+    if(length(valid_neighbors) == 0) {
+      valid_neighbors <- names(counts)
+    }
+
     inside_cells <- unique(c(inside_cells, sample(valid_neighbors, 1)))
   }
   extract_borders(inside_cells)
