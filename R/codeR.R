@@ -104,7 +104,7 @@ generate_loop_medium <- function(n, m) {
 generate_loop_hard <- function(n, m) {
   cx <- sample(1:m, 1); cy <- sample(1:n, 1)
   inside_cells <- paste(cy, cx, sep="_")
-  iterations <- floor((n * m) * 0.35)
+  iterations <- floor((n * m) * 0.6)
   for(i in 1:iterations) {
     all_neighbors <- get_all_neighbors(inside_cells, n, m)
     # On cherche les voisins qui ne touchent qu'UNE seule case (serpentin)
