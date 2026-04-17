@@ -105,8 +105,8 @@ generate_loop_hard <- function(n, m) {
   cx <- sample(1:m, 1); cy <- sample(1:n, 1)
   inside_cells <- paste(cy, cx, sep="_")
 
-  # On baisse à 40% pour éviter la saturation du 10x10
-  iterations <- floor((n * m) * 0.4)
+  # On baisse à 45% pour éviter la saturation du 10x10
+  iterations <- floor((n * m) * 0.45)
 
   for(i in 1:iterations) {
     all_neighbors <- get_all_neighbors(inside_cells, n, m)
