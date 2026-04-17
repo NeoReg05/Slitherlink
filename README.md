@@ -1,5 +1,13 @@
 # 🧩 Slitherlink - Application Shiny en R
 
+---
+
+## 🌐 Démo en ligne
+
+👉 https://neoreg05.shinyapps.io/slitherlink/
+
+---
+
 ## 📌 Description
 
 Ce projet consiste en la création d’une application interactive du jeu **Slitherlink** 

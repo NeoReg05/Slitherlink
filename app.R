@@ -2,7 +2,7 @@ library(shiny)
 library(bslib)
 
 # Charger le code des fonctions (Vérifie bien le chemin du fichier)
-source("R/codeR.R")
+source("R/codeR.R", local = TRUE)
 
 ui <- page_sidebar(
   title = "Slitherlink R",
